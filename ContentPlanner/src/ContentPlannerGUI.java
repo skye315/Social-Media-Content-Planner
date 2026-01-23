@@ -1,3 +1,5 @@
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -13,26 +15,28 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.table.DefaultTableModel;
 
 public class ContentPlannerGUI {
 
+  DefaultTableModel tableModel;
+  JTable postTable;
+
+  CardLayout cardLayout;
+  JPanel cardPanel;
+
   JFrame frame = new JFrame("Content Planner");
-  JPanel panel = new JPanel();
-  JPanel editPanel = new JPanel();
-
-  JButton reviewCurrentPlanButton = new JButton("Review Current Plan");
-  JButton createNewPostButton = new JButton("Create New Post");
-  JButton editButton = new JButton("Edit Existing Post");
-  JButton deleteButton = new JButton("Delete Existing Post");
-
 
   JLabel title = new JLabel("Welcome to Your Social Media Content Planner!");
 
 
   public ContentPlannerGUI() {
+    ContentPlanner.posts = PostStorage.loadPosts();
     setupMainFrame();
-    setupMainMenuButtons();
+
   }
 
   public static void main(String[] args) {
@@ -41,96 +45,195 @@ public class ContentPlannerGUI {
 
 
   private void setupMainFrame() {
-    panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
-    panel.setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
-    panel.setBackground(new Color (248, 200, 220));
-    editPanel.setLayout(new BoxLayout(editPanel, BoxLayout.LINE_AXIS ));
+
+    if (!ContentPlanner.posts.isEmpty()) {
+      ContentPlanner.nextId =
+          ContentPlanner.posts.get(ContentPlanner.posts.size() - 1).getId() + 1;
+    }
+
+    cardLayout = new CardLayout();
+    cardPanel = new JPanel(cardLayout);
+
+    cardPanel.add(menuPanel(), "MENU");
+    cardPanel.add(createPostPanel(), "CREATE");
+    cardPanel.add(editPanel(), "EDIT");
+
     frame.setSize(1000, 1000);
     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.getContentPane().setBackground(Color.GRAY);
-
-
-    title.setFont(new Font("Times New Roman", Font.BOLD, 30));
-    title.setAlignmentX(Component.CENTER_ALIGNMENT);
-    panel.add(title);
-    panel.add(Box.createRigidArea(new Dimension(0,200)));
-
-    frame.add(panel);
+    frame.add(cardPanel);
     frame.setVisible(true);
+
+    cardLayout.show(cardPanel, "MENU");
+    refreshTable();
   }
 
-  private void setupMainMenuButtons() {
 
-    Dimension buttonSize = new Dimension(250, 50);
+  private JPanel menuPanel() {
 
-    JButton [] buttons = {
-        reviewCurrentPlanButton,
-        createNewPostButton,
-        editButton,
-        deleteButton
-    };
+    //Main Menu Panel
+    JPanel mainPanel = new JPanel();
+    mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+    mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+    mainPanel.setBackground(new Color(248, 200, 220));
+
+
+    // Title Panel
+    JPanel titlePanel = new JPanel();
+    titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
+    titlePanel.setBackground(new Color(248, 200, 220));
+
+    titlePanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+    Font titleFont = new Font("Serif", Font.BOLD, 100);
+
+    JLabel content = new JLabel("Content");
+    JLabel planner = new JLabel("Planner");
+
+    JLabel[] titles = {content, planner};
+
+    for (JLabel title : titles) {
+      title.setFont(titleFont);
+      title.setAlignmentX(Component.CENTER_ALIGNMENT);
+      titlePanel.add(title);
+
+      titlePanel.add(Box.createRigidArea(new Dimension(0, 40)));
+    }
+
+    // Add Title Panel to Main Panel
+    mainPanel.add(titlePanel, BorderLayout.NORTH);
+
+
+    // Buttons
+    JPanel buttonPanel = new JPanel();
+    buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
+    buttonPanel.setBackground(new Color(248, 200, 220));
+
+    JButton reviewButton = new JButton("Review");
+    JButton createButton = new JButton("Create");
+    JButton editButton = new JButton("Edit");
+    JButton deleteButton = new JButton("Delete");
+
+    JButton[] buttons = {reviewButton, createButton, editButton, deleteButton};
+
 
     for (JButton button : buttons) {
-      button.setAlignmentX(Component.CENTER_ALIGNMENT);
-      button.setPreferredSize(buttonSize);
-      button.setFont(new Font("Arial", Font.PLAIN, 15));
-
-      panel.add(button);
-      panel.add(Box.createRigidArea(new Dimension(0,20)));
+      buttonPanel.add(button);
+      buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
     }
 
+    mainPanel.add(buttonPanel);
+    mainPanel.add(Box.createRigidArea(new Dimension(0, 40)));
 
 
-    reviewCurrentPlanButton.addActionListener(e -> showCurrentPlan());
-    createNewPostButton.addActionListener(e -> createNewPostDialog());
-    editButton.addActionListener(e -> editPostDialog());
+    //Table
+    String[] columns = {"ID", "Platform", "Date", "Concept", "Category", "Status"};
+    tableModel = new DefaultTableModel(columns, 0);
+    postTable = new JTable(tableModel);
+
+    JScrollPane scrollPane = new JScrollPane(postTable);
+    scrollPane.setPreferredSize(new Dimension(900, 200));
+    scrollPane.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+    mainPanel.add(scrollPane);
+
+
+    // Button Actions
+    reviewButton.addActionListener(e -> showCurrentPlan());
+    createButton.addActionListener(e -> cardLayout.show(cardPanel, "CREATE"));
+    editButton.addActionListener(e -> {
+      cardPanel.remove(cardPanel.getComponentCount() - 1);
+      cardPanel.add(editPanel(), "EDIT");
+      cardLayout.show(cardPanel, "EDIT");
+    });
     deleteButton.addActionListener(e -> deletePostDialog());
+    refreshTable();
+    return mainPanel;
   }
 
-  private void showCurrentPlan() {
-    PostStorage.loadPosts();
-    if (ContentPlanner.posts.isEmpty()) {
-      JOptionPane.showMessageDialog(frame, "You don't have any posts yet!");
-      return;
-    }
-    StringBuilder displayText = new StringBuilder();
-    for (Post post : ContentPlanner.posts) {
-      displayText.append(post.toString()).append("\n");
-    }
-    JOptionPane.showMessageDialog(frame, displayText.toString());
+
+  private JPanel createPostPanel() {
+    JPanel createPanel = new JPanel();
+    createPanel.setLayout(new GridLayout(7, 2, 10, 10));
+
+    JTextField platformField = new JTextField();
+    JTextField dateField = new JTextField();
+    JTextField conceptField = new JTextField();
+
+    JComboBox<Category> categoryDropdown = new JComboBox<>(Category.values());
+    JComboBox<Status> statusDropdown = new JComboBox<>(Status.values());
+
+    createPanel.add(new JLabel("Platform:"));
+    createPanel.add(platformField);
+
+    createPanel.add(new JLabel("Date:"));
+    createPanel.add(dateField);
+
+    createPanel.add(new JLabel("Concept:"));
+    createPanel.add(conceptField);
+
+    createPanel.add(new JLabel("Category:"));
+    createPanel.add(categoryDropdown);
+
+    createPanel.add(new JLabel("Status:"));
+    createPanel.add(statusDropdown);
+
+    // Save and Back Buttons
+    JButton saveButton = new JButton("Save Post");
+    JButton backButton = new JButton("Back");
+
+    createPanel.add(backButton);
+    createPanel.add(saveButton);
+
+    // Save Button Logic
+    saveButton.addActionListener(e -> {
+      Post post = new Post(
+          ContentPlanner.nextId++,
+          platformField.getText(),
+          dateField.getText(),
+          (Category) categoryDropdown.getSelectedItem(),
+          (Status) statusDropdown.getSelectedItem(),
+          conceptField.getText()
+      );
+      ContentPlanner.posts.add(post);
+      PostStorage.savePosts(ContentPlanner.posts);
+
+      refreshTable();
+      cardLayout.show(cardPanel, "MENU");
+    });
+
+    // Back Button Logic
+    backButton.addActionListener(e -> {
+      cardLayout.show(cardPanel, "MENU");
+    });
+    return createPanel;
   }
 
-  private void createNewPostDialog() {
-    String platform = JOptionPane.showInputDialog(frame, "Enter Platform: ");
-    String date = JOptionPane.showInputDialog(frame, "Enter Date: ");
-    String concept = JOptionPane.showInputDialog(frame, "Enter Post Concept: ");
-    String categoryChoice = JOptionPane.showInputDialog(frame, "Category (1. Lifestyle, " +
-        "2. Food, 3. Get Ready With Me, 4. Other");
-    String statusChoice = JOptionPane.showInputDialog(frame, "Enter Status: (1. Idea, " +
-        "2. Filming, 3. Editing, 4. Completed ");
 
-
-    Category category = convertCategoryFromChoice(categoryChoice);
-    Status status = convertStatusFromChoice(statusChoice);
-
-    Post post = new Post(ContentPlanner.nextId++, platform, date, category, status, concept);
-    ContentPlanner.posts.add(post);
-    PostStorage.savePosts(ContentPlanner.posts);
-    JOptionPane.showMessageDialog(frame, "Post created!");
-  }
-
-  private void editPostDialog() {
-    if (ContentPlanner.posts.isEmpty()) {
-      JOptionPane.showMessageDialog(frame, "You don't have any posts yet!");
-      return;
-    }
-
-    // Create a new dialog for editing
-    JDialog editDialog = new JDialog(frame, "Edit Post", true);
+  private JPanel editPanel() {
     JPanel editPanel = new JPanel();
-    editPanel.setLayout(new GridLayout(6, 2, 5, 5));
+    editPanel.setLayout(new GridLayout(2, 1, 10, 10));
+    editPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-    // Dropdown to select post
+    // Back button
+    JButton backButton = new JButton("Back");
+    editPanel.add(backButton);
+
+    backButton.addActionListener(e -> {
+      cardLayout.show(cardPanel, "MENU");
+    });
+
+    if (ContentPlanner.posts.isEmpty()) {
+      JLabel titleLabel = new JLabel("No posts found", JLabel.CENTER);
+
+      editPanel.add(titleLabel);
+      editPanel.add(backButton);
+
+      return editPanel;
+    }
+
+    editPanel.setLayout(new GridLayout(8, 2, 10, 10));
+
+    // Dropdown to select post to edit
     JComboBox<Post> postDropdown = new JComboBox<>();
     for (Post post : ContentPlanner.posts) {
       postDropdown.addItem(post);
@@ -161,17 +264,13 @@ public class ContentPlannerGUI {
     editPanel.add(new JLabel("Status: "));
     editPanel.add(statusDropdown);
 
-    // Save button
-    JButton saveButton = new JButton("Save Changes");
+    // Save Button
+    JButton saveButton = new JButton("Save Post");
+
     editPanel.add(saveButton);
 
-    // Add panel to dialog
-    editDialog.add(editPanel);
-    editDialog.pack();
-    editDialog.setLocationRelativeTo(frame);
-
     // Populate fields when a post is selected
-    postDropdown.addActionListener(ev -> {
+    postDropdown.addActionListener(e -> {
       Post selectedPost = (Post) postDropdown.getSelectedItem();
       if (selectedPost != null) {
         platformField.setText(selectedPost.getPlatform());
@@ -182,23 +281,36 @@ public class ContentPlannerGUI {
       }
     });
 
-    // Save changes
-    saveButton.addActionListener(ev -> {
+    // Save button
+    saveButton.addActionListener(e -> {
       Post selectedPost = (Post) postDropdown.getSelectedItem();
       if (selectedPost != null) {
         selectedPost.setPlatform(platformField.getText());
         selectedPost.setDate(dateField.getText());
         selectedPost.setConcept(conceptField.getText());
-        selectedPost.setStatus((Status) statusDropdown.getSelectedItem());
         selectedPost.setCategory((Category) categoryDropdown.getSelectedItem());
+        selectedPost.setStatus((Status) statusDropdown.getSelectedItem());
 
-        // Save changes to file
         PostStorage.savePosts(ContentPlanner.posts);
-        JOptionPane.showMessageDialog(frame, "Post updated!");
-        editDialog.dispose();
+        refreshTable();
+        JOptionPane.showMessageDialog(frame, "Post Saved");
       }
     });
-    editDialog.setVisible(true);
+
+    return editPanel;
+  }
+
+  private void showCurrentPlan() {
+    PostStorage.loadPosts();
+    if (ContentPlanner.posts.isEmpty()) {
+      JOptionPane.showMessageDialog(frame, "You don't have any posts yet!");
+      return;
+    }
+    StringBuilder displayText = new StringBuilder();
+    for (Post post : ContentPlanner.posts) {
+      displayText.append(post.toString()).append("\n");
+    }
+    JOptionPane.showMessageDialog(frame, displayText.toString());
   }
 
   private void deletePostDialog() {
@@ -234,8 +346,22 @@ public class ContentPlannerGUI {
         return Status.IDEA;
     }
   }
-}
 
+  private void refreshTable() {
+    if (tableModel == null) {
+      return;
+    }
+      tableModel.setRowCount(0);
 
-
-
+      for (Post post : ContentPlanner.posts) {
+        tableModel.addRow(new Object[] {
+            post.getId(),
+            post.getPlatform(),
+            post.getDate(),
+            post.getConcept(),
+            post.getCategory(),
+            post.getStatus(),
+        });
+      }
+    }
+  }

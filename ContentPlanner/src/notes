@@ -1,9 +1,11 @@
-- Make it More Aesthetically Pleasing
-
-- Fix it so it shows presaved file posts
-
 - Make delete posts working
 
 - Add a progress bar to home screen to show percentage of posts completed
 
-- show plan in jtable
+- fix the review page
+
+- fix the create new post page so its empty each time
+
+- fix the edit page so the words line up with the correct boxes
+
+- add better crash preventions

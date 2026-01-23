@@ -50,6 +50,4 @@ public class PostStorage {
         e.printStackTrace();
       }
     }
-
-
   }
