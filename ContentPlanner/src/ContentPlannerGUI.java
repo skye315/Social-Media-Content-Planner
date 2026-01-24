@@ -3,6 +3,7 @@ import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import javax.swing.BorderFactory;
@@ -108,12 +109,11 @@ public class ContentPlannerGUI {
     buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
     buttonPanel.setBackground(new Color(248, 200, 220));
 
-    JButton reviewButton = new JButton("Review");
     JButton createButton = new JButton("Create");
     JButton editButton = new JButton("Edit");
     JButton deleteButton = new JButton("Delete");
 
-    JButton[] buttons = {reviewButton, createButton, editButton, deleteButton};
+    JButton[] buttons = {createButton, editButton, deleteButton};
 
 
     for (JButton button : buttons) {
@@ -138,22 +138,66 @@ public class ContentPlannerGUI {
 
 
     // Button Actions
-    reviewButton.addActionListener(e -> showCurrentPlan());
     createButton.addActionListener(e -> cardLayout.show(cardPanel, "CREATE"));
     editButton.addActionListener(e -> {
       cardPanel.remove(cardPanel.getComponentCount() - 1);
       cardPanel.add(editPanel(), "EDIT");
       cardLayout.show(cardPanel, "EDIT");
     });
-    deleteButton.addActionListener(e -> deletePostDialog());
+    deleteButton.addActionListener(e -> {
+      int viewRow = postTable.getSelectedRow();
+
+      if (viewRow == -1) {
+        JOptionPane.showMessageDialog(null, "Please select a post from the table to delete!");
+        return;
+      }
+      int modelRow = postTable.convertRowIndexToModel(viewRow);
+
+      int confirm = JOptionPane.showConfirmDialog(frame,
+          "Are you sure you want to delete this post?",
+          "Confirm Delete",
+          JOptionPane.YES_NO_OPTION);
+
+      if (confirm != JOptionPane.YES_OPTION) {
+        return;
+      }
+
+      ContentPlanner.posts.remove(modelRow);
+      tableModel.removeRow(modelRow);
+      PostStorage.savePosts(ContentPlanner.posts);
+    });
+
+
     refreshTable();
     return mainPanel;
   }
 
+  private JPanel buildPostForm(JTextField platformField, JTextField dateField, JTextField conceptField,
+                               JComboBox<Category> categoryField, JComboBox<Status> statusField) {
+    JPanel form = new JPanel(new GridLayout(5,2,10,10));
+    form.setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40 ));
+
+    form.add(new JLabel("Platform:"));
+    form.add(platformField);
+
+    form.add(new JLabel("Date:"));
+    form.add(dateField);
+
+    form.add(new JLabel("Concept:"));
+    form.add(conceptField);
+
+    form.add(new JLabel("Category:"));
+    form.add(categoryField);
+
+    form.add(new JLabel("Status:"));
+    form.add(statusField);
+
+    return form;
+  }
+
 
   private JPanel createPostPanel() {
-    JPanel createPanel = new JPanel();
-    createPanel.setLayout(new GridLayout(7, 2, 10, 10));
+    JPanel createPanel = new JPanel(new BorderLayout());
 
     JTextField platformField = new JTextField();
     JTextField dateField = new JTextField();
@@ -162,30 +206,26 @@ public class ContentPlannerGUI {
     JComboBox<Category> categoryDropdown = new JComboBox<>(Category.values());
     JComboBox<Status> statusDropdown = new JComboBox<>(Status.values());
 
-    createPanel.add(new JLabel("Platform:"));
-    createPanel.add(platformField);
-
-    createPanel.add(new JLabel("Date:"));
-    createPanel.add(dateField);
-
-    createPanel.add(new JLabel("Concept:"));
-    createPanel.add(conceptField);
-
-    createPanel.add(new JLabel("Category:"));
-    createPanel.add(categoryDropdown);
-
-    createPanel.add(new JLabel("Status:"));
-    createPanel.add(statusDropdown);
+    createPanel.add(buildPostForm(platformField, dateField, conceptField, categoryDropdown, statusDropdown),
+        BorderLayout.CENTER);
 
     // Save and Back Buttons
     JButton saveButton = new JButton("Save Post");
     JButton backButton = new JButton("Back");
 
-    createPanel.add(backButton);
-    createPanel.add(saveButton);
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    buttonPanel.add(backButton);
+    buttonPanel.add(saveButton);
+
+    createPanel.add(buttonPanel, BorderLayout.SOUTH);
 
     // Save Button Logic
     saveButton.addActionListener(e -> {
+      if (isEmpty(platformField.getText()) || isEmpty(dateField.getText()) || isEmpty(conceptField.getText())) {
+        JOptionPane.showMessageDialog(frame, "Please fill all the required fields!", "Missing Information", JOptionPane.WARNING_MESSAGE);
+      return;
+      }
+
       Post post = new Post(
           ContentPlanner.nextId++,
           platformField.getText(),
@@ -199,6 +239,9 @@ public class ContentPlannerGUI {
 
       refreshTable();
       cardLayout.show(cardPanel, "MENU");
+      platformField.setText("");
+      dateField.setText("");
+      conceptField.setText("");
     });
 
     // Back Button Logic
@@ -210,91 +253,83 @@ public class ContentPlannerGUI {
 
 
   private JPanel editPanel() {
-    JPanel editPanel = new JPanel();
-    editPanel.setLayout(new GridLayout(2, 1, 10, 10));
-    editPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-    // Back button
-    JButton backButton = new JButton("Back");
-    editPanel.add(backButton);
-
-    backButton.addActionListener(e -> {
-      cardLayout.show(cardPanel, "MENU");
-    });
+    JPanel editPanel = new JPanel(new BorderLayout());
 
     if (ContentPlanner.posts.isEmpty()) {
       JLabel titleLabel = new JLabel("No posts found", JLabel.CENTER);
-
-      editPanel.add(titleLabel);
-      editPanel.add(backButton);
-
+      editPanel.add(titleLabel, BorderLayout.CENTER);
       return editPanel;
     }
-
-    editPanel.setLayout(new GridLayout(8, 2, 10, 10));
-
-    // Dropdown to select post to edit
-    JComboBox<Post> postDropdown = new JComboBox<>();
-    for (Post post : ContentPlanner.posts) {
-      postDropdown.addItem(post);
-    }
-    editPanel.add(new JLabel("Select Post: "));
-    editPanel.add(postDropdown);
 
     // Text fields for editing
     JTextField platformField = new JTextField();
     JTextField dateField = new JTextField();
     JTextField conceptField = new JTextField();
 
-    editPanel.add(new JLabel("Platform: "));
-    editPanel.add(platformField);
-
-    editPanel.add(new JLabel("Date: "));
-    editPanel.add(dateField);
-
-    editPanel.add(new JLabel("Concept: "));
-    editPanel.add(conceptField);
-
     //Dropdowns for category and status
     JComboBox<Category> categoryDropdown = new JComboBox<>(Category.values());
-    editPanel.add(new JLabel("Category: "));
-    editPanel.add(categoryDropdown);
-
     JComboBox<Status> statusDropdown = new JComboBox<>(Status.values());
-    editPanel.add(new JLabel("Status: "));
-    editPanel.add(statusDropdown);
 
-    // Save Button
-    JButton saveButton = new JButton("Save Post");
+    JComboBox<Post> postDropdown = new JComboBox<>(ContentPlanner.posts.toArray(new Post[0]));
 
-    editPanel.add(saveButton);
-
-    // Populate fields when a post is selected
     postDropdown.addActionListener(e -> {
-      Post selectedPost = (Post) postDropdown.getSelectedItem();
-      if (selectedPost != null) {
-        platformField.setText(selectedPost.getPlatform());
-        dateField.setText(selectedPost.getDate());
-        conceptField.setText(selectedPost.getConcept());
-        categoryDropdown.setSelectedItem(selectedPost.getCategory());
-        statusDropdown.setSelectedItem(selectedPost.getStatus());
+      Post p = (Post) postDropdown.getSelectedItem();
+      if (p != null) {
+        platformField.setText(p.getPlatform());
+        dateField.setText(p.getDate());
+        conceptField.setText(p.getConcept());
+        categoryDropdown.setSelectedItem(p.getCategory());
+        statusDropdown.setSelectedItem(p.getStatus());
       }
     });
 
-    // Save button
-    saveButton.addActionListener(e -> {
-      Post selectedPost = (Post) postDropdown.getSelectedItem();
-      if (selectedPost != null) {
-        selectedPost.setPlatform(platformField.getText());
-        selectedPost.setDate(dateField.getText());
-        selectedPost.setConcept(conceptField.getText());
-        selectedPost.setCategory((Category) categoryDropdown.getSelectedItem());
-        selectedPost.setStatus((Status) statusDropdown.getSelectedItem());
+    JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    topPanel.add(new JLabel("Select Post: "));
+    topPanel.add(postDropdown);
 
-        PostStorage.savePosts(ContentPlanner.posts);
-        refreshTable();
-        JOptionPane.showMessageDialog(frame, "Post Saved");
-      }
+    editPanel.add(topPanel, BorderLayout.NORTH);
+
+    editPanel.add(buildPostForm(platformField, dateField, conceptField, categoryDropdown, statusDropdown),
+    BorderLayout.CENTER
+    );
+
+    //Save and Back Buttons
+    JButton saveButton = new JButton("Save Changes");
+    JButton backButton = new JButton("Back");
+
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    buttonPanel.add(backButton);
+    buttonPanel.add(saveButton);
+
+    editPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+    backButton.addActionListener(e -> {
+      cardLayout.show(cardPanel, "MENU");
+    });
+
+    saveButton.addActionListener(e -> {
+     if (isEmpty(platformField.getText()) || isEmpty(dateField.getText()) || isEmpty(conceptField.getText())) {
+       JOptionPane.showMessageDialog(frame, "Please fill all the required fields!", "Missing Information", JOptionPane.WARNING_MESSAGE);
+       return;
+     }
+
+     Post post = (Post) postDropdown.getSelectedItem();
+     if (post != null) {
+       post.setPlatform(platformField.getText());
+       post.setDate(dateField.getText());
+       post.setConcept(conceptField.getText());
+       post.setCategory((Category) categoryDropdown.getSelectedItem());
+       post.setStatus((Status) statusDropdown.getSelectedItem());
+
+
+       PostStorage.savePosts(ContentPlanner.posts);
+       refreshTable();
+       JOptionPane.showMessageDialog(frame, "Post saved!");
+       platformField.setText("");
+       dateField.setText("");
+       conceptField.setText("");
+     }
+
     });
 
     return editPanel;
@@ -364,4 +399,8 @@ public class ContentPlannerGUI {
         });
       }
     }
+
+  private boolean isEmpty(String text) {
+    return text == null || text.trim().isEmpty();
   }
+}
