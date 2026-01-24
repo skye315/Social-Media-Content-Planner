@@ -13,9 +13,9 @@ The program maintains a running list of posts and displays the upcoming content 
 
 ## File Structure 
 /src
-├── ContentPlannerGUI.java    # Main GUI class
-├── ContentPlanner.java       # Stores posts ArrayList and nextId
-├── Post.java                 # Post model class
-├── PostStorage.java          # Handles saving/loading posts
-├── Category.java             # Enum for post categories
-└── Status.java               # Enum for post status
+* ├── ContentPlannerGUI.java    # Main GUI class
+* ├── ContentPlanner.java       # Stores posts ArrayList and nextId
+* ├── Post.java                 # Post model class
+* ├── PostStorage.java          # Handles saving/loading posts
+* ├── Category.java             # Enum for post categories
+* └── Status.java               # Enum for post status
